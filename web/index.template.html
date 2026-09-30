@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>n8n-lint — security linter for n8n workflows</title>
+<meta name="description" content="Paste an n8n workflow and see hard-coded secrets, ungated writes after LLMs, risky agent tools and more. Runs entirely in your browser.">
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c232c;--line:#2d3742;--fg:#e6edf3;--mut:#8b98a5;--crit:#ff4d4f;--high:#f0883e;--med:#d29922;--low:#58a6ff;--info:#6e7681;--ok:#3fb950;--ai:#b392f0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:22px 28px 10px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:baseline}
+h1{margin:0;font-size:22px;letter-spacing:-.01em}
+h1 span{color:var(--ai)}
+.tag{color:var(--mut)}
+.priv{margin-left:auto;color:var(--ok);font-size:13px}
+main{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:18px;padding:10px 28px 40px}
+@media(max-width:960px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
+textarea{width:100%;height:340px;background:#0b0f14;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
+textarea:focus{outline:2px solid var(--ai);outline-offset:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+button,.btn{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:6px 11px;font:inherit;cursor:pointer}
+button:hover{border-color:var(--ai)}
+button.primary{background:#5b3fd1;border-color:#7b61ff}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:10px;margin-top:10px;color:var(--mut);text-align:center;font-size:13px}
+.drop.over{border-color:var(--ai);color:var(--fg)}
+.err{color:var(--crit);margin-top:8px;white-space:pre-wrap}
+.score{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.ring{width:92px;height:92px;flex:none}
+.ring text{fill:var(--fg);font-weight:700}
+.counts{display:flex;gap:8px;flex-wrap:wrap}
+.pill{border-radius:999px;padding:2px 10px;font-size:12px;border:1px solid var(--line)}
+.pill.critical{background:rgba(255,77,79,.15);color:var(--crit);border-color:var(--crit)}
+.pill.high{background:rgba(240,136,62,.15);color:var(--high);border-color:var(--high)}
+.pill.medium{background:rgba(210,153,34,.15);color:var(--med);border-color:var(--med)}
+.pill.low{background:rgba(88,166,255,.12);color:var(--low);border-color:var(--low)}
+.pill.info{color:var(--info)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button.on{border-color:var(--ai);background:#26204a}
+.findings{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.f{border:1px solid var(--line);border-left:4px solid var(--info);border-radius:8px;padding:9px 12px;background:var(--panel2);cursor:pointer}
+.f.critical{border-left-color:var(--crit)}.f.high{border-left-color:var(--high)}.f.medium{border-left-color:var(--med)}.f.low{border-left-color:var(--low)}
+.f.sel{outline:2px solid var(--ai)}
+.f .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.f code{background:#0b0f14;border-radius:4px;padding:0 5px;font-size:12px}
+.f .fix{color:var(--mut);margin-top:4px;font-size:13px}
+.f details{margin-top:4px;color:var(--mut);font-size:13px}
+.graph{overflow:auto;border:1px solid var(--line);border-radius:8px;background:#0b0f14;margin-top:12px}
+.graph svg{display:block;min-width:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.ok{color:var(--ok)}
+footer{padding:0 28px 30px;color:var(--mut);font-size:12px}
+a{color:var(--low)}
+.empty{color:var(--mut);padding:30px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>n8n<span>-lint</span></h1>
+  <div class="tag">Security linter for n8n workflows and AI agents · v__VERSION__</div>
+  <div class="priv">🔒 Runs in your browser. Nothing is uploaded.</div>
+</header>
+<main>
+  <section class="card">
+    <h2>Workflow JSON</h2>
+    <textarea id="src" spellcheck="false" placeholder="Paste an n8n workflow here (select all nodes in n8n → Ctrl+C), or drop a .json file below"></textarea>
+    <div class="drop" id="drop">Drop a workflow .json file here</div>
+    <div class="row">
+      <button class="primary" id="run">Lint</button>
+      <button data-ex="bad-lead-agent">Example: insecure agent</button>
+      <button data-ex="agent-with-write-tools">Example: risky tools</button>
+      <button data-ex="good-approval-flow">Example: with approval</button>
+    </div>
+    <div class="err" id="err"></div>
+  </section>
+  <section class="card" id="out"><div class="empty">Paste a workflow, or try an example →</div></section>
+</main>
+<footer>
+  Rules N8N001–N8N012 · static analysis only (it never runs your workflow, never contacts n8n) · heuristics can be wrong: suppress a finding with <code>n8n-lint-disable N8N005</code> in the node's Notes.
+</footer>
+<script>
+/*__BUNDLE__*/
+/*__EXAMPLES__*/
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const SEV = ['critical', 'high', 'medium', 'low', 'info'];
+  const COLOR = { critical: '#ff4d4f', high: '#f0883e', medium: '#d29922', low: '#58a6ff', info: '#6e7681' };
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs = {}, text) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
+  const sv = (tag, attrs = {}, text) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
+
+  let state = { workflows: [], results: [], active: 0, selected: null };
+
+  function lint() {
+    $('#err').textContent = '';
+    const text = $('#src').value.trim();
+    if (!text) { $('#err').textContent = 'Nothing to lint yet.'; return; }
+    let data;
+    try { data = JSON.parse(text); } catch (e) { $('#err').textContent = 'Invalid JSON: ' + e.message; return; }
+    const wfs = N8NLINT.unwrapWorkflows(data);
+    if (!wfs.length) { $('#err').textContent = 'This does not look like an n8n workflow (no "nodes" array).'; return; }
+    state = { workflows: wfs, results: wfs.map((w) => N8NLINT.lintWorkflow(w, {})), active: 0, selected: null };
+    render();
+  }
+
+  function ring(score) {
+    const c = score >= 90 ? '#3fb950' : score >= 60 ? '#d29922' : '#ff4d4f';
+    const r = 40, len = 2 * Math.PI * r;
+    const svg = sv('svg', { class: 'ring', viewBox: '0 0 100 100', role: 'img', 'aria-label': 'score ' + score });
+    svg.append(sv('circle', { cx: 50, cy: 50, r, fill: 'none', stroke: '#2d3742', 'stroke-width': 9 }));
+    svg.append(sv('circle', { cx: 50, cy: 50, r, fill: 'none', stroke: c, 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-dasharray': `${(len * score) / 100} ${len}`, transform: 'rotate(-90 50 50)' }));
+    svg.append(sv('text', { x: 50, y: 56, 'text-anchor': 'middle', 'font-size': 26 }, String(score)));
+    return svg;
+  }
+
+  function render() {
+    const out = $('#out'); out.textContent = '';
+    const { workflows, results, active } = state;
+    if (results.length > 1) {
+      const tabs = el('div', { class: 'tabs' });
+      results.forEach((r, i) => { const b = el('button', { class: i === active ? 'on' : '' }, `${r.name} (${r.score})`); b.onclick = () => { state.active = i; state.selected = null; render(); }; tabs.append(b); });
+      out.append(tabs);
+    }
+    const r = results[active], wf = workflows[active];
+    const top = el('div', { class: 'score' });
+    top.append(ring(r.score));
+    const meta = el('div');
+    meta.append(el('div', {}, r.name));
+    meta.lastChild.style.fontWeight = '600';
+    meta.append(el('div', { class: 'tag' }, `Grade ${r.grade} · ${r.nodeCount} nodes · ${r.findings.filter((f) => f.severity !== 'info').length} findings` + (r.suppressed.length ? ` · ${r.suppressed.length} suppressed` : '')));
+    const counts = el('div', { class: 'counts' });
+    for (const s of SEV) if (r.counts[s]) counts.append(el('span', { class: 'pill ' + s }, `${r.counts[s]} ${s}`));
+    if (!r.findings.length) counts.append(el('span', { class: 'ok' }, '✔ No findings'));
+    meta.append(counts);
+    top.append(meta);
+    out.append(top);
+    out.append(graph(wf, r));
+
+    const list = el('div', { class: 'findings' });
+    r.findings.forEach((f, i) => {
+      const d = el('div', { class: `f ${f.severity}${state.selected === i ? ' sel' : ''}` });
+      const h = el('div', { class: 'h' });
+      h.append(el('span', { class: 'pill ' + f.severity }, f.severity), el('code', {}, f.ruleId), el('b', {}, f.rule));
+      d.append(h, el('div', {}, f.message), el('div', { class: 'fix' }, '→ ' + f.fix));
+      d.onclick = () => { state.selected = state.selected === i ? null : i; render(); };
+      list.append(d);
+    });
+    out.append(list);
+  }
+
+  function graph(wf, r) {
+    const wrap = el('div');
+    const nodes = (wf.nodes || []).filter((n) => n && n.name && n.type !== 'n8n-nodes-base.stickyNote');
+    if (!nodes.length) return wrap;
+    const W = 168, H = 34;
+    const pos = new Map();
+    const xs = nodes.map((n) => (Array.isArray(n.position) ? +n.position[0] : 0) || 0), ys = nodes.map((n) => (Array.isArray(n.position) ? +n.position[1] : 0) || 0);
+    const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
+    // n8n spacing is ~220px; compress a bit, keep the real layout
+    nodes.forEach((n, i) => pos.set(n.name, { x: 20 + (xs[i] - minX) * 0.85, y: 20 + (ys[i] - minY) * 0.85 }));
+    const vw = 40 + (maxX - minX) * 0.85 + W, vh = 40 + (maxY - minY) * 0.85 + H;
+    const svg = sv('svg', { viewBox: `0 0 ${vw} ${vh}`, width: Math.max(vw, 600), height: vh, role: 'img', 'aria-label': 'workflow graph' });
+    const defs = sv('defs');
+    for (const [id, col] of [['a', '#5b6775'], ['b', '#b392f0']]) {
+      const m = sv('marker', { id: 'arr-' + id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+      m.append(sv('path', { d: 'M0 0L10 5L0 10z', fill: col })); defs.append(m);
+    }
+    svg.append(defs);
+
+    const sel = state.selected != null ? r.findings[state.selected] : null;
+    const selSet = new Set(sel ? sel.nodes : []);
+    const primary = new Map(); // node -> worst severity as primary node
+    const involved = new Set();
+    for (const f of r.findings) {
+      if (f.severity === 'info') continue;
+      f.nodes.forEach((n, i) => { if (i === 0) { const cur = primary.get(n); if (!cur || SEV.indexOf(f.severity) < SEV.indexOf(cur)) primary.set(n, f.severity); } else involved.add(n); });
+    }
+
+    const conns = wf.connections && typeof wf.connections === 'object' ? wf.connections : {};
+    for (const [from, types] of Object.entries(conns)) {
+      if (!types || typeof types !== 'object' || !pos.has(from)) continue;
+      for (const [type, outs] of Object.entries(types)) {
+        if (!Array.isArray(outs)) continue;
+        for (const branch of outs) for (const t of Array.isArray(branch) ? branch : []) {
+          if (!t || !pos.has(t.node)) continue;
+          const a = pos.get(from), b = pos.get(t.node), ai = type !== 'main';
+          const x1 = ai ? a.x + W / 2 : a.x + W, y1 = ai ? a.y : a.y + H / 2, x2 = ai ? b.x + W / 2 : b.x, y2 = ai ? b.y + H : b.y + H / 2;
+          const dx = Math.max(30, Math.abs(x2 - x1) / 2);
+          const d = ai ? `M${x1} ${y1}C${x1} ${y1 - 40},${x2} ${y2 + 40},${x2} ${y2}` : `M${x1} ${y1}C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}`;
+          svg.append(sv('path', { d, fill: 'none', stroke: ai ? '#b392f0' : '#5b6775', 'stroke-width': 1.6, 'stroke-dasharray': ai ? '5 4' : '', 'marker-end': `url(#arr-${ai ? 'b' : 'a'})`, opacity: sel && !(selSet.has(from) && selSet.has(t.node)) ? 0.25 : 1 }));
+        }
+      }
+    }
+    for (const n of nodes) {
+      const p = pos.get(n.name), sev = primary.get(n.name);
+      const g = sv('g', { opacity: sel && !selSet.has(n.name) ? 0.35 : 1 });
+      g.append(sv('rect', { x: p.x, y: p.y, width: W, height: H, rx: 8, fill: sev ? COLOR[sev] + '33' : '#161b22', stroke: selSet.has(n.name) ? '#ffffff' : sev ? COLOR[sev] : involved.has(n.name) ? '#b392f0' : '#3a4654', 'stroke-width': selSet.has(n.name) ? 3 : sev ? 2 : 1.2, 'stroke-dasharray': n.disabled ? '4 3' : '' }));
+      const label = n.name.length > 24 ? n.name.slice(0, 23) + '…' : n.name;
+      g.append(sv('text', { x: p.x + 10, y: p.y + 15, 'font-size': 12, fill: '#e6edf3' }, label));
+      g.append(sv('text', { x: p.x + 10, y: p.y + 28, 'font-size': 9.5, fill: '#8b98a5' }, String(n.type || '').split('.').pop().slice(0, 30)));
+      svg.append(g);
+    }
+    const holder = el('div', { class: 'graph' }); holder.append(svg); wrap.append(holder);
+    const lg = el('div', { class: 'legend' });
+    const item = (c, t) => { const s = el('span'); const i = el('i'); i.style.background = c; s.append(i, t); return s; };
+    lg.append(item(COLOR.critical, 'critical'), item(COLOR.high, 'high'), item(COLOR.medium, 'medium'), item(COLOR.low, 'low'), item('#b392f0', 'dashed = AI sub-connection (model / tool / memory → agent)'), el('span', {}, 'Click a finding to highlight its nodes'));
+    wrap.append(lg);
+    return wrap;
+  }
+
+  $('#run').onclick = lint;
+  $('#src').addEventListener('input', () => { clearTimeout(window.__t); window.__t = setTimeout(() => { if ($('#src').value.trim().length > 20) lint(); }, 500); });
+  document.querySelectorAll('[data-ex]').forEach((b) => b.onclick = () => { $('#src').value = JSON.stringify(EXAMPLES[b.dataset.ex], null, 2); lint(); });
+  const drop = $('#drop');
+  ['dragenter', 'dragover'].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', async (ev) => { const f = ev.dataTransfer.files[0]; if (f) { $('#src').value = await f.text(); lint(); } });
+})();
+</script>
+</body>
+</html>

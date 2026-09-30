@@ -1,0 +1,171 @@
+{
+  "name": "Lead triage agent (intentionally insecure demo)",
+  "nodes": [
+    {
+      "id": "lead-webhook",
+      "name": "Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "new-lead",
+        "httpMethod": "POST",
+        "authentication": "none"
+      }
+    },
+    {
+      "id": "lead-triage-agent",
+      "name": "Lead Triage Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "text": "={{ $json.body.message }}",
+        "options": {
+          "systemMessage": "You triage inbound leads. Reply politely."
+        }
+      }
+    },
+    {
+      "id": "openai-chat-model",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        260,
+        200
+      ],
+      "parameters": {
+        "model": "gpt-4o-mini"
+      }
+    },
+    {
+      "id": "send-reply-email",
+      "name": "Send Reply Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        520,
+        -80
+      ],
+      "parameters": {
+        "operation": "send",
+        "resource": "message",
+        "sendTo": "={{ $json.body.email }}",
+        "subject": "Thanks!",
+        "message": "={{ $json.output }}"
+      }
+    },
+    {
+      "id": "create-hubspot-contact",
+      "name": "Create HubSpot Contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 1,
+      "position": [
+        520,
+        80
+      ],
+      "parameters": {
+        "resource": "contact",
+        "operation": "create",
+        "email": "={{ $json.body.email }}"
+      }
+    },
+    {
+      "id": "lookup-existing-lead",
+      "name": "Lookup Existing Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        520,
+        240
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT * FROM leads WHERE email = '{{ $json.body.email }}'"
+      }
+    },
+    {
+      "id": "enrich-company",
+      "name": "Enrich Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        520,
+        400
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://enrich.example.com/v1/company",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer demo-not-a-real-token-7f3a9c1e5b2d4a60"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Lead Webhook": {
+      "main": [
+        [
+          {
+            "node": "Lead Triage Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lookup Existing Lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enrich Company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Triage Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Reply Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create HubSpot Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Lead Triage Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

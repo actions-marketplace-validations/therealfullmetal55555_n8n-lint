@@ -1,0 +1,107 @@
+name: 'n8n-lint'
+description: 'Security linter for n8n workflows and AI agents: secrets, ungated writes after LLMs, risky agent tools, open webhooks.'
+author: 'Kirill Tsyganov'
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  path:
+    description: 'File or directory with n8n workflow JSON files.'
+    required: false
+    default: '.'
+  fail-on:
+    description: 'Fail the job at or above this severity: critical | high | medium | low | none.'
+    required: false
+    default: 'high'
+  min-score:
+    description: 'Fail if any workflow scores below this (0-100).'
+    required: false
+    default: '0'
+  config:
+    description: 'Path to a .n8nlintrc.json (default: ./.n8nlintrc.json if present).'
+    required: false
+    default: ''
+  sarif:
+    description: 'Upload results to GitHub code scanning (needs permissions: security-events: write).'
+    required: false
+    default: 'false'
+  comment:
+    description: 'Post / update a summary comment on pull requests (needs permissions: pull-requests: write).'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'Token used for the PR comment.'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  exit-code:
+    description: '0 = ok, 1 = findings at or above fail-on (or score below min-score), 2 = input / usage error.'
+    value: ${{ steps.lint.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - id: lint
+      shell: bash
+      env:
+        IN_PATH: ${{ inputs.path }}
+        IN_FAIL_ON: ${{ inputs.fail-on }}
+        IN_MIN_SCORE: ${{ inputs.min-score }}
+        IN_CONFIG: ${{ inputs.config }}
+      run: |
+        set +e
+        BIN="$GITHUB_ACTION_PATH/bin/n8n-lint.js"
+        OUT="${RUNNER_TEMP:-/tmp}/n8n-lint"
+        mkdir -p "$OUT"
+        ARGS=(--fail-on "$IN_FAIL_ON" --min-score "$IN_MIN_SCORE")
+        if [ -n "$IN_CONFIG" ]; then ARGS+=(--config "$IN_CONFIG"); fi
+
+        node "$BIN" "$IN_PATH" "${ARGS[@]}" --format sarif    --output "$OUT/results.sarif"
+        node "$BIN" "$IN_PATH" "${ARGS[@]}" --format markdown --output "$OUT/report.md"
+        node "$BIN" "$IN_PATH" "${ARGS[@]}" --no-color          # human-readable log, and the real exit code
+        CODE=$?
+
+        if [ -f "$OUT/report.md" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$OUT/report.md" >> "$GITHUB_STEP_SUMMARY"; fi
+        echo "exit-code=$CODE" >> "$GITHUB_OUTPUT"
+        echo "out-dir=$OUT"   >> "$GITHUB_OUTPUT"
+        exit 0
+
+    - name: Upload SARIF
+      if: ${{ inputs.sarif == 'true' && hashFiles(format('{0}/n8n-lint/results.sarif', runner.temp)) != '' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ runner.temp }}/n8n-lint/results.sarif
+        category: n8n-lint
+
+    - name: Comment on pull request
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        OUT_DIR: ${{ steps.lint.outputs.out-dir }}
+      run: |
+        set -e
+        MARK='<!-- n8n-lint-report -->'
+        BODY_FILE="$OUT_DIR/comment.md"
+        { echo "$MARK"; cat "$OUT_DIR/report.md"; } > "$BODY_FILE"
+        ID=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq ".[] | select(.body | contains(\"$MARK\")) | .id" | head -n1)
+        if [ -n "$ID" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$BODY_FILE" > /dev/null
+        else
+          gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$BODY_FILE" > /dev/null
+        fi
+
+    - name: Fail if the lint failed
+      shell: bash
+      env:
+        CODE: ${{ steps.lint.outputs.exit-code }}
+      run: |
+        if [ "$CODE" != "0" ]; then echo "n8n-lint exited with code $CODE"; exit "$CODE"; fi

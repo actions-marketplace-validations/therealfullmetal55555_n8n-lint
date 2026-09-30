@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+      - run: npm run lint:examples
+      - run: node scripts/build-web.js --check
+      - run: node scripts/gen-rules-doc.js --check
+
+  self-check-action:
+    # dogfood: the action must pass on the known-good example and fail on the known-bad one
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: good example passes
+        uses: ./
+        with:
+          path: examples/good-approval-flow.json
+      - name: bad example fails (expected)
+        id: bad
+        uses: ./
+        continue-on-error: true
+        with:
+          path: examples/bad-lead-agent.json
+      - name: assert the bad example failed
+        run: test "${{ steps.bad.outcome }}" = "failure"

@@ -1,0 +1,10 @@
+{
+  "$comment": "Copy to your repo root. Severity: off | info | low | medium | high | critical",
+  "failOn": "high",
+  "minScore": 0,
+  "ignore": ["workflows/archive/**", "**/*.backup.json"],
+  "rules": {
+    "N8N002": "low",
+    "N8N010": "off"
+  }
+}

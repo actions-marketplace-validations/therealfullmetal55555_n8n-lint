@@ -1,0 +1,23 @@
+{
+  "name": "n8n-lint",
+  "version": "0.1.0",
+  "description": "ESLint for n8n workflows: finds hard-coded secrets, ungated writes after LLMs, unsafe agent tools, unbounded loops and more. Zero dependencies.",
+  "type": "module",
+  "bin": { "n8n-lint": "bin/n8n-lint.js" },
+  "main": "src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "files": ["bin", "src", "docs", "examples", "action.yml", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "lint:examples": "node bin/n8n-lint.js examples/good-approval-flow.json --fail-on low",
+    "build:web": "node scripts/build-web.js",
+    "docs": "node scripts/gen-rules-doc.js",
+    "check": "npm test && npm run lint:examples && node scripts/build-web.js --check && node scripts/gen-rules-doc.js --check"
+  },
+  "engines": { "node": ">=18" },
+  "keywords": ["n8n", "lint", "linter", "workflow", "security", "ai-agents", "llm", "sarif", "github-action", "guardrails"],
+  "author": "Kirill Tsyganov",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/therealfullmetal55555/n8n-lint.git" },
+  "homepage": "https://github.com/therealfullmetal55555/n8n-lint#readme"
+}

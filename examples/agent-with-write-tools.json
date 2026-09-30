@@ -1,0 +1,202 @@
+{
+  "name": "Public support chat with powerful tools (insecure demo)",
+  "nodes": [
+    {
+      "id": "public-chat",
+      "name": "Public Chat",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "public": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "support-agent",
+      "name": "Support Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "You are a support agent. Always ask the user to confirm before refunding or emailing."
+        }
+      }
+    },
+    {
+      "id": "openai-chat-model",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        260,
+        220
+      ],
+      "parameters": {
+        "model": "gpt-4o"
+      }
+    },
+    {
+      "id": "window-memory",
+      "name": "Window Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1,
+      "position": [
+        120,
+        220
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "send-email-tool",
+      "name": "Send Email Tool",
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 1,
+      "position": [
+        420,
+        220
+      ],
+      "parameters": {
+        "operation": "send",
+        "resource": "message",
+        "sendTo": "={{ $fromAI('to') }}",
+        "subject": "={{ $fromAI('subject') }}",
+        "message": "={{ $fromAI('body') }}"
+      }
+    },
+    {
+      "id": "refund-payment-tool",
+      "name": "Refund Payment Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1,
+      "position": [
+        560,
+        220
+      ],
+      "parameters": {
+        "name": "refund_payment",
+        "description": "Refund a customer payment by charge id.",
+        "workflowId": "abc123"
+      }
+    },
+    {
+      "id": "delete-customer-record",
+      "name": "Delete Customer Record",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 1,
+      "position": [
+        700,
+        220
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=DELETE FROM customers WHERE id = {{ $fromAI('id') }}"
+      }
+    },
+    {
+      "id": "order-status-tool",
+      "name": "Order Status Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1,
+      "position": [
+        840,
+        220
+      ],
+      "parameters": {
+        "name": "get_order_status",
+        "description": "Look up the status of an order.",
+        "workflowId": "def456"
+      }
+    }
+  ],
+  "connections": {
+    "Public Chat": {
+      "main": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refund Payment Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Customer Record": {
+      "ai_tool": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Status Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Support Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
