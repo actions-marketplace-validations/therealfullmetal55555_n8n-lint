@@ -3,84 +3,128 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>n8n-lint — security linter for n8n workflows</title>
-<meta name="description" content="Paste an n8n workflow and see hard-coded secrets, ungated writes after LLMs, risky agent tools and more. Runs entirely in your browser.">
+<title>n8n-lint</title>
+<meta name="description" content="Security linter for n8n workflows and AI agents. Runs entirely in your browser.">
 <style>
-:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c232c;--line:#2d3742;--fg:#e6edf3;--mut:#8b98a5;--crit:#ff4d4f;--high:#f0883e;--med:#d29922;--low:#58a6ff;--info:#6e7681;--ok:#3fb950;--ai:#b392f0}
+:root{
+  --bg:#fafaf9; --surface:#ffffff; --ink:#18181b; --ink2:#52525b; --ink3:#a1a1aa; --line:#e7e5e4; --hover:#f5f5f4;
+  --critical:#b42318; --high:#c2410c; --medium:#a16207; --low:#52525b; --info:#a1a1aa; --ok:#15803d;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header{padding:22px 28px 10px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:baseline}
-h1{margin:0;font-size:22px;letter-spacing:-.01em}
-h1 span{color:var(--ai)}
-.tag{color:var(--mut)}
-.priv{margin-left:auto;color:var(--ok);font-size:13px}
-main{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:18px;padding:10px 28px 40px}
-@media(max-width:960px){main{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
-h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
-textarea{width:100%;height:340px;background:#0b0f14;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
-textarea:focus{outline:2px solid var(--ai);outline-offset:0}
-.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-button,.btn{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:6px 11px;font:inherit;cursor:pointer}
-button:hover{border-color:var(--ai)}
-button.primary{background:#5b3fd1;border-color:#7b61ff}
-.drop{border:2px dashed var(--line);border-radius:10px;padding:10px;margin-top:10px;color:var(--mut);text-align:center;font-size:13px}
-.drop.over{border-color:var(--ai);color:var(--fg)}
-.err{color:var(--crit);margin-top:8px;white-space:pre-wrap}
-.score{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-.ring{width:92px;height:92px;flex:none}
-.ring text{fill:var(--fg);font-weight:700}
-.counts{display:flex;gap:8px;flex-wrap:wrap}
-.pill{border-radius:999px;padding:2px 10px;font-size:12px;border:1px solid var(--line)}
-.pill.critical{background:rgba(255,77,79,.15);color:var(--crit);border-color:var(--crit)}
-.pill.high{background:rgba(240,136,62,.15);color:var(--high);border-color:var(--high)}
-.pill.medium{background:rgba(210,153,34,.15);color:var(--med);border-color:var(--med)}
-.pill.low{background:rgba(88,166,255,.12);color:var(--low);border-color:var(--low)}
-.pill.info{color:var(--info)}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.tabs button.on{border-color:var(--ai);background:#26204a}
-.findings{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-.f{border:1px solid var(--line);border-left:4px solid var(--info);border-radius:8px;padding:9px 12px;background:var(--panel2);cursor:pointer}
-.f.critical{border-left-color:var(--crit)}.f.high{border-left-color:var(--high)}.f.medium{border-left-color:var(--med)}.f.low{border-left-color:var(--low)}
-.f.sel{outline:2px solid var(--ai)}
-.f .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.f code{background:#0b0f14;border-radius:4px;padding:0 5px;font-size:12px}
-.f .fix{color:var(--mut);margin-top:4px;font-size:13px}
-.f details{margin-top:4px;color:var(--mut);font-size:13px}
-.graph{overflow:auto;border:1px solid var(--line);border-radius:8px;background:#0b0f14;margin-top:12px}
-.graph svg{display:block;min-width:100%}
-.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;margin-top:8px}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.ok{color:var(--ok)}
-footer{padding:0 28px 30px;color:var(--mut);font-size:12px}
-a{color:var(--low)}
-.empty{color:var(--mut);padding:30px;text-align:center}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:0 24px}
+header{display:flex;align-items:baseline;gap:14px;padding:28px 0 0}
+header b{font-size:16px;font-weight:600;letter-spacing:-.01em}
+header span{color:var(--ink3);font-size:13px}
+header nav{margin-left:auto;display:flex;gap:18px}
+a,.link{color:var(--ink2);text-decoration:none;background:none;border:0;padding:0;font:inherit;cursor:pointer;border-bottom:1px solid var(--line)}
+a:hover,.link:hover{color:var(--ink);border-bottom-color:var(--ink)}
+.link.sm{font-size:13px}
+
+/* empty / input state */
+.intro{padding:88px 0 28px}
+h1{font-size:34px;line-height:1.15;font-weight:600;letter-spacing:-.025em;margin:0 0 12px}
+.lead{color:var(--ink2);max-width:560px;margin:0 0 28px;font-size:16px}
+textarea{width:100%;height:220px;resize:vertical;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font:12.5px/1.5 var(--mono);outline:none;transition:border-color .15s}
+textarea:focus{border-color:var(--ink3)}
+textarea::placeholder{color:var(--ink3)}
+.actions{display:flex;align-items:center;gap:20px;margin-top:14px;flex-wrap:wrap}
+.btn{background:var(--ink);color:#fff;border:0;border-radius:8px;padding:9px 18px;font:inherit;font-weight:500;cursor:pointer}
+.btn:hover{background:#000}
+.muted{color:var(--ink3);font-size:13px}
+.err{color:var(--critical);font-size:14px;margin-top:12px;white-space:pre-wrap}
+.drop.over textarea{border-color:var(--ink);background:var(--hover)}
+
+/* result state */
+.bar{display:flex;align-items:center;gap:18px;padding:36px 0 8px;flex-wrap:wrap}
+.bar .name{font-weight:600;font-size:18px;letter-spacing:-.01em}
+.bar .right{margin-left:auto;display:flex;gap:18px}
+.tabs{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 0}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:4px 0;font:inherit;color:var(--ink3);cursor:pointer}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
+
+.summary{display:flex;align-items:flex-end;gap:40px;padding:22px 0 26px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.score{display:flex;align-items:baseline;gap:8px}
+.score .n{font-size:68px;line-height:1;font-weight:300;letter-spacing:-.04em}
+.score .d{color:var(--ink3);font-size:15px}
+.score .g{margin-left:6px;font-weight:600;font-size:15px;padding:2px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.facts{display:flex;gap:26px;flex-wrap:wrap;padding-bottom:6px}
+.fact .v{font-size:22px;font-weight:500;line-height:1.1}
+.fact .l{font-size:12px;color:var(--ink3);margin-top:3px;display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--info)}
+.dot.critical{background:var(--critical)}.dot.high{background:var(--high)}.dot.medium{background:var(--medium)}.dot.low{background:var(--low)}
+.clean{color:var(--ok);font-weight:500;padding-bottom:10px}
+
+section{padding:26px 0 0}
+h2{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin:0 0 12px;display:flex;align-items:center;gap:16px}
+h2 .hint{font-weight:400;letter-spacing:0;text-transform:none}
+
+.graph{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:auto}
+.graph svg{display:block;margin:0 auto}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--ink3)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend .ln{width:18px;border-top:1.5px solid #a1a1aa}
+.legend .ln.d{border-top-style:dashed}
+
+.filters{display:flex;gap:16px;margin-bottom:4px;flex-wrap:wrap;font-size:13px}
+.filters button{background:none;border:0;padding:2px 0;font:inherit;color:var(--ink3);cursor:pointer;border-bottom:1px solid transparent}
+.filters button.on{color:var(--ink);border-bottom-color:var(--ink)}
+.list{border-top:1px solid var(--line)}
+.f{display:grid;grid-template-columns:92px 1fr;gap:4px 16px;padding:16px 10px;margin:0 -10px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px}
+.f:hover{background:var(--hover)}
+.f.sel{background:var(--hover);box-shadow:inset 2px 0 0 var(--ink)}
+.f:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.sev{font-size:12px;font-weight:600;text-transform:capitalize;display:flex;align-items:center;gap:7px;padding-top:2px}
+.sev.critical{color:var(--critical)}.sev.high{color:var(--high)}.sev.medium{color:var(--medium)}.sev.low{color:var(--low)}.sev.info{color:var(--info)}
+.f .t{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.f .t b{font-weight:600}
+.f .id{font:12px var(--mono);color:var(--ink3)}
+.f .m{grid-column:2;color:var(--ink)}
+.f .fix{grid-column:2;color:var(--ink2);font-size:13.5px}
+.f .fix::before{content:"Fix  ";color:var(--ink3);font-weight:600;font-size:12px;letter-spacing:.02em}
+.empty{padding:28px 0;color:var(--ink3)}
+footer{padding:44px 0 48px;color:var(--ink3);font-size:12.5px;max-width:640px}
+code{font:12px var(--mono);background:var(--hover);padding:1px 5px;border-radius:4px;color:var(--ink2)}
+.hidden{display:none!important}
+@media(max-width:640px){.f{grid-template-columns:1fr}.f .m,.f .fix{grid-column:1}.intro{padding-top:48px}h1{font-size:28px}.score .n{font-size:54px}}
 </style>
 </head>
 <body>
-<header>
-  <h1>n8n<span>-lint</span></h1>
-  <div class="tag">Security linter for n8n workflows and AI agents · v0.1.0</div>
-  <div class="priv">🔒 Runs in your browser. Nothing is uploaded.</div>
-</header>
-<main>
-  <section class="card">
-    <h2>Workflow JSON</h2>
-    <textarea id="src" spellcheck="false" placeholder="Paste an n8n workflow here (select all nodes in n8n → Ctrl+C), or drop a .json file below"></textarea>
-    <div class="drop" id="drop">Drop a workflow .json file here</div>
-    <div class="row">
-      <button class="primary" id="run">Lint</button>
-      <button data-ex="bad-lead-agent">Example: insecure agent</button>
-      <button data-ex="agent-with-write-tools">Example: risky tools</button>
-      <button data-ex="good-approval-flow">Example: with approval</button>
+<div class="wrap">
+  <header>
+    <b>n8n-lint</b><span>v0.1.0</span>
+    <nav><a href="https://github.com/therealfullmetal55555/n8n-lint" rel="noopener">GitHub</a></nav>
+  </header>
+
+  <!-- input -->
+  <div id="input">
+    <div class="intro">
+      <h1>Check an n8n workflow<br>before an LLM does something with it.</h1>
+      <p class="lead">Finds leaked secrets, open webhooks, and places where a model's output can send an email, write to a CRM or delete data without anyone approving it.</p>
+    </div>
+    <div class="drop" id="drop">
+      <textarea id="src" spellcheck="false" placeholder="Paste workflow JSON here — in n8n select all nodes and press Ctrl+C. Or drop a .json file."></textarea>
+    </div>
+    <div class="actions">
+      <button class="btn" id="run">Lint</button>
+      <span class="muted">Try an example:</span>
+      <button class="link sm" data-ex="bad-lead-agent">insecure agent</button>
+      <button class="link sm" data-ex="agent-with-write-tools">risky tools</button>
+      <button class="link sm" data-ex="good-approval-flow">with approval</button>
     </div>
     <div class="err" id="err"></div>
-  </section>
-  <section class="card" id="out"><div class="empty">Paste a workflow, or try an example →</div></section>
-</main>
-<footer>
-  Rules N8N001–N8N012 · static analysis only (it never runs your workflow, never contacts n8n) · heuristics can be wrong: suppress a finding with <code>n8n-lint-disable N8N005</code> in the node's Notes.
-</footer>
+    <div class="muted" style="margin-top:22px">Runs in your browser. Nothing is uploaded.</div>
+  </div>
+
+  <!-- result -->
+  <div id="result" class="hidden"></div>
+
+  <footer>
+    Static analysis only: it never runs your workflow and never contacts n8n. Heuristics can be wrong. Suppress a finding by adding <code>n8n-lint-disable N8N005</code> to the node's Notes.
+  </footer>
+</div>
 <script>
 const __defs = {}; const __cache = {};
 function __req(k) { if (!(k in __cache)) { if (!__defs[k]) throw new Error("missing module " + k); __cache[k] = __defs[k](__req); } return __cache[k]; }
@@ -1057,96 +1101,124 @@ const EXAMPLES = {"agent-with-write-tools":{"name":"Public support chat with pow
 (() => {
   const $ = (s) => document.querySelector(s);
   const SEV = ['critical', 'high', 'medium', 'low', 'info'];
-  const COLOR = { critical: '#ff4d4f', high: '#f0883e', medium: '#d29922', low: '#58a6ff', info: '#6e7681' };
+  const VAR = { critical: '#b42318', high: '#c2410c', medium: '#a16207', low: '#52525b', info: '#a1a1aa' };
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag, attrs = {}, text) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
   const sv = (tag, attrs = {}, text) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
 
-  let state = { workflows: [], results: [], active: 0, selected: null };
+  let state = { workflows: [], results: [], active: 0, selected: null, filter: 'all' };
 
   function lint() {
     $('#err').textContent = '';
     const text = $('#src').value.trim();
-    if (!text) { $('#err').textContent = 'Nothing to lint yet.'; return; }
+    if (!text) { $('#err').textContent = 'Paste a workflow first.'; return; }
     let data;
-    try { data = JSON.parse(text); } catch (e) { $('#err').textContent = 'Invalid JSON: ' + e.message; return; }
+    try { data = JSON.parse(text); } catch (e) { $('#err').textContent = 'That is not valid JSON: ' + e.message; return; }
     const wfs = N8NLINT.unwrapWorkflows(data);
     if (!wfs.length) { $('#err').textContent = 'This does not look like an n8n workflow (no "nodes" array).'; return; }
-    state = { workflows: wfs, results: wfs.map((w) => N8NLINT.lintWorkflow(w, {})), active: 0, selected: null };
+    state = { workflows: wfs, results: wfs.map((w) => N8NLINT.lintWorkflow(w, {})), active: 0, selected: null, filter: 'all' };
+    $('#input').classList.add('hidden');
+    $('#result').classList.remove('hidden');
     render();
+    window.scrollTo(0, 0);
   }
 
-  function ring(score) {
-    const c = score >= 90 ? '#3fb950' : score >= 60 ? '#d29922' : '#ff4d4f';
-    const r = 40, len = 2 * Math.PI * r;
-    const svg = sv('svg', { class: 'ring', viewBox: '0 0 100 100', role: 'img', 'aria-label': 'score ' + score });
-    svg.append(sv('circle', { cx: 50, cy: 50, r, fill: 'none', stroke: '#2d3742', 'stroke-width': 9 }));
-    svg.append(sv('circle', { cx: 50, cy: 50, r, fill: 'none', stroke: c, 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-dasharray': `${(len * score) / 100} ${len}`, transform: 'rotate(-90 50 50)' }));
-    svg.append(sv('text', { x: 50, y: 56, 'text-anchor': 'middle', 'font-size': 26 }, String(score)));
-    return svg;
+  function back() {
+    $('#result').classList.add('hidden');
+    $('#input').classList.remove('hidden');
   }
 
   function render() {
-    const out = $('#out'); out.textContent = '';
+    const out = $('#result'); out.textContent = '';
     const { workflows, results, active } = state;
+    const r = results[active], wf = workflows[active];
+    const shown = r.findings.filter((f) => f.severity !== 'info');
+
+    // top bar
+    const bar = el('div', { class: 'bar' });
+    bar.append(el('div', { class: 'name' }, r.name));
+    const right = el('div', { class: 'right' });
+    const edit = el('button', { class: 'link sm' }, 'Edit JSON'); edit.onclick = back;
+    const dl = el('button', { class: 'link sm' }, 'Download report'); dl.onclick = () => download(r);
+    right.append(edit, dl); bar.append(right);
+    out.append(bar);
     if (results.length > 1) {
       const tabs = el('div', { class: 'tabs' });
-      results.forEach((r, i) => { const b = el('button', { class: i === active ? 'on' : '' }, `${r.name} (${r.score})`); b.onclick = () => { state.active = i; state.selected = null; render(); }; tabs.append(b); });
+      results.forEach((x, i) => { const b = el('button', { class: i === active ? 'on' : '' }, `${x.name} · ${x.score}`); b.onclick = () => { state.active = i; state.selected = null; state.filter = 'all'; render(); }; tabs.append(b); });
       out.append(tabs);
     }
-    const r = results[active], wf = workflows[active];
-    const top = el('div', { class: 'score' });
-    top.append(ring(r.score));
-    const meta = el('div');
-    meta.append(el('div', {}, r.name));
-    meta.lastChild.style.fontWeight = '600';
-    meta.append(el('div', { class: 'tag' }, `Grade ${r.grade} · ${r.nodeCount} nodes · ${r.findings.filter((f) => f.severity !== 'info').length} findings` + (r.suppressed.length ? ` · ${r.suppressed.length} suppressed` : '')));
-    const counts = el('div', { class: 'counts' });
-    for (const s of SEV) if (r.counts[s]) counts.append(el('span', { class: 'pill ' + s }, `${r.counts[s]} ${s}`));
-    if (!r.findings.length) counts.append(el('span', { class: 'ok' }, '✔ No findings'));
-    meta.append(counts);
-    top.append(meta);
-    out.append(top);
-    out.append(graph(wf, r));
 
-    const list = el('div', { class: 'findings' });
+    // summary
+    const sum = el('div', { class: 'summary' });
+    const sc = el('div', { class: 'score' });
+    sc.append(el('span', { class: 'n' }, String(r.score)), el('span', { class: 'd' }, '/ 100'), el('span', { class: 'g' }, r.grade));
+    sum.append(sc);
+    const facts = el('div', { class: 'facts' });
+    const fact = (v, l, sev) => { const f = el('div', { class: 'fact' }); f.append(el('div', { class: 'v' }, String(v))); const lab = el('div', { class: 'l' }); if (sev) lab.append(el('i', { class: 'dot ' + sev })); lab.append(document.createTextNode(l)); f.append(lab); return f; };
+    facts.append(fact(r.nodeCount, 'nodes'));
+    for (const s of SEV.slice(0, 4)) if (r.counts[s]) facts.append(fact(r.counts[s], s, s));
+    if (!shown.length) facts.append(el('div', { class: 'clean' }, 'No findings'));
+    sum.append(facts);
+    out.append(sum);
+
+    // graph
+    const gs = el('section');
+    const gh = el('h2', {}, 'Workflow'); gh.append(el('span', { class: 'hint' }, 'Select a finding to highlight its nodes'));
+    gs.append(gh, graph(wf, r));
+    out.append(gs);
+
+    // findings
+    const fs = el('section');
+    fs.append(el('h2', {}, 'Findings'));
+    if (!shown.length) { fs.append(el('div', { class: 'empty' }, 'Nothing to report. The graph above has no untrusted input reaching an unapproved action.')); out.append(fs); return; }
+    const filters = el('div', { class: 'filters' });
+    const fb = (key, label) => { const b = el('button', { class: state.filter === key ? 'on' : '' }, label); b.onclick = () => { state.filter = key; state.selected = null; render(); }; filters.append(b); };
+    fb('all', `All ${shown.length}`);
+    for (const s of SEV.slice(0, 4)) if (r.counts[s]) fb(s, `${s[0].toUpperCase() + s.slice(1)} ${r.counts[s]}`);
+    fs.append(filters);
+    const list = el('div', { class: 'list' });
     r.findings.forEach((f, i) => {
-      const d = el('div', { class: `f ${f.severity}${state.selected === i ? ' sel' : ''}` });
-      const h = el('div', { class: 'h' });
-      h.append(el('span', { class: 'pill ' + f.severity }, f.severity), el('code', {}, f.ruleId), el('b', {}, f.rule));
-      d.append(h, el('div', {}, f.message), el('div', { class: 'fix' }, '→ ' + f.fix));
-      d.onclick = () => { state.selected = state.selected === i ? null : i; render(); };
+      if (f.severity === 'info' || (state.filter !== 'all' && f.severity !== state.filter)) return;
+      const d = el('div', { class: 'f' + (state.selected === i ? ' sel' : ''), tabindex: '0', role: 'button' });
+      const sev = el('div', { class: 'sev ' + f.severity }); sev.append(el('i', { class: 'dot ' + f.severity }), document.createTextNode(f.severity));
+      const t = el('div', { class: 't' }); t.append(el('b', {}, f.rule), el('span', { class: 'id' }, f.ruleId));
+      d.append(sev, t, el('div', { class: 'm' }, f.message), el('div', { class: 'fix' }, f.fix));
+      const pick = () => { state.selected = state.selected === i ? null : i; render(); };
+      d.onclick = pick; d.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
       list.append(d);
     });
-    out.append(list);
+    fs.append(list);
+    out.append(fs);
+  }
+
+  function download(r) {
+    const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+    const a = el('a', { href: URL.createObjectURL(blob), download: 'n8n-lint-report.json' });
+    document.body.append(a); a.click(); a.remove();
   }
 
   function graph(wf, r) {
     const wrap = el('div');
     const nodes = (wf.nodes || []).filter((n) => n && n.name && n.type !== 'n8n-nodes-base.stickyNote');
     if (!nodes.length) return wrap;
-    const W = 168, H = 34;
-    const pos = new Map();
+    const W = 176, H = 40, SC = 0.85;
     const xs = nodes.map((n) => (Array.isArray(n.position) ? +n.position[0] : 0) || 0), ys = nodes.map((n) => (Array.isArray(n.position) ? +n.position[1] : 0) || 0);
     const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
-    // n8n spacing is ~220px; compress a bit, keep the real layout
-    nodes.forEach((n, i) => pos.set(n.name, { x: 20 + (xs[i] - minX) * 0.85, y: 20 + (ys[i] - minY) * 0.85 }));
-    const vw = 40 + (maxX - minX) * 0.85 + W, vh = 40 + (maxY - minY) * 0.85 + H;
-    const svg = sv('svg', { viewBox: `0 0 ${vw} ${vh}`, width: Math.max(vw, 600), height: vh, role: 'img', 'aria-label': 'workflow graph' });
+    const pos = new Map();
+    nodes.forEach((n, i) => pos.set(n.name, { x: 24 + (xs[i] - minX) * SC, y: 24 + (ys[i] - minY) * SC }));
+    const vw = 48 + (maxX - minX) * SC + W, vh = 48 + (maxY - minY) * SC + H;
+    const svg = sv('svg', { viewBox: `0 0 ${vw} ${vh}`, width: vw, height: vh, role: 'img', 'aria-label': 'workflow graph', style: 'max-width:none' });
     const defs = sv('defs');
-    for (const [id, col] of [['a', '#5b6775'], ['b', '#b392f0']]) {
-      const m = sv('marker', { id: 'arr-' + id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
-      m.append(sv('path', { d: 'M0 0L10 5L0 10z', fill: col })); defs.append(m);
-    }
-    svg.append(defs);
+    const m = sv('marker', { id: 'arr', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' });
+    m.append(sv('path', { d: 'M0 0L10 5L0 10z', fill: '#a1a1aa' })); defs.append(m); svg.append(defs);
 
     const sel = state.selected != null ? r.findings[state.selected] : null;
     const selSet = new Set(sel ? sel.nodes : []);
-    const primary = new Map(); // node -> worst severity as primary node
-    const involved = new Set();
+    const primary = new Map();
     for (const f of r.findings) {
-      if (f.severity === 'info') continue;
-      f.nodes.forEach((n, i) => { if (i === 0) { const cur = primary.get(n); if (!cur || SEV.indexOf(f.severity) < SEV.indexOf(cur)) primary.set(n, f.severity); } else involved.add(n); });
+      if (f.severity === 'info' || !f.nodes.length) continue;
+      const n = f.nodes[0], cur = primary.get(n);
+      if (!cur || SEV.indexOf(f.severity) < SEV.indexOf(cur)) primary.set(n, f.severity);
     }
 
     const conns = wf.connections && typeof wf.connections === 'object' ? wf.connections : {};
@@ -1160,34 +1232,40 @@ const EXAMPLES = {"agent-with-write-tools":{"name":"Public support chat with pow
           const x1 = ai ? a.x + W / 2 : a.x + W, y1 = ai ? a.y : a.y + H / 2, x2 = ai ? b.x + W / 2 : b.x, y2 = ai ? b.y + H : b.y + H / 2;
           const dx = Math.max(30, Math.abs(x2 - x1) / 2);
           const d = ai ? `M${x1} ${y1}C${x1} ${y1 - 40},${x2} ${y2 + 40},${x2} ${y2}` : `M${x1} ${y1}C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}`;
-          svg.append(sv('path', { d, fill: 'none', stroke: ai ? '#b392f0' : '#5b6775', 'stroke-width': 1.6, 'stroke-dasharray': ai ? '5 4' : '', 'marker-end': `url(#arr-${ai ? 'b' : 'a'})`, opacity: sel && !(selSet.has(from) && selSet.has(t.node)) ? 0.25 : 1 }));
+          const on = !sel || (selSet.has(from) && selSet.has(t.node));
+          svg.append(sv('path', { d, fill: 'none', stroke: on && sel ? '#18181b' : '#a1a1aa', 'stroke-width': on && sel ? 1.6 : 1.2, 'stroke-dasharray': ai ? '4 4' : '', 'marker-end': 'url(#arr)', opacity: on ? 1 : 0.25 }));
         }
       }
     }
     for (const n of nodes) {
-      const p = pos.get(n.name), sev = primary.get(n.name);
-      const g = sv('g', { opacity: sel && !selSet.has(n.name) ? 0.35 : 1 });
-      g.append(sv('rect', { x: p.x, y: p.y, width: W, height: H, rx: 8, fill: sev ? COLOR[sev] + '33' : '#161b22', stroke: selSet.has(n.name) ? '#ffffff' : sev ? COLOR[sev] : involved.has(n.name) ? '#b392f0' : '#3a4654', 'stroke-width': selSet.has(n.name) ? 3 : sev ? 2 : 1.2, 'stroke-dasharray': n.disabled ? '4 3' : '' }));
-      const label = n.name.length > 24 ? n.name.slice(0, 23) + '…' : n.name;
-      g.append(sv('text', { x: p.x + 10, y: p.y + 15, 'font-size': 12, fill: '#e6edf3' }, label));
-      g.append(sv('text', { x: p.x + 10, y: p.y + 28, 'font-size': 9.5, fill: '#8b98a5' }, String(n.type || '').split('.').pop().slice(0, 30)));
+      const p = pos.get(n.name), sev = primary.get(n.name), isSel = selSet.has(n.name);
+      const g = sv('g', { opacity: sel && !isSel ? 0.35 : 1 });
+      g.append(sv('rect', { x: p.x, y: p.y, width: W, height: H, rx: 7, fill: '#ffffff', stroke: isSel ? '#18181b' : '#d6d3d1', 'stroke-width': isSel ? 1.8 : 1, 'stroke-dasharray': n.disabled ? '3 3' : '' }));
+      if (sev) {
+        g.append(sv('rect', { x: p.x, y: p.y, width: W, height: H, rx: 7, fill: VAR[sev], 'fill-opacity': 0.06 }));
+        g.append(sv('rect', { x: p.x, y: p.y + 7, width: 3, height: H - 14, rx: 1.5, fill: VAR[sev] }));
+      }
+      const label = n.name.length > 25 ? n.name.slice(0, 24) + '…' : n.name;
+      g.append(sv('text', { x: p.x + 14, y: p.y + 17, 'font-size': 12.5, 'font-weight': 500, fill: '#18181b' }, label));
+      g.append(sv('text', { x: p.x + 14, y: p.y + 31, 'font-size': 10.5, fill: '#a1a1aa' }, String(n.type || '').split('.').pop().slice(0, 32)));
       svg.append(g);
     }
     const holder = el('div', { class: 'graph' }); holder.append(svg); wrap.append(holder);
     const lg = el('div', { class: 'legend' });
-    const item = (c, t) => { const s = el('span'); const i = el('i'); i.style.background = c; s.append(i, t); return s; };
-    lg.append(item(COLOR.critical, 'critical'), item(COLOR.high, 'high'), item(COLOR.medium, 'medium'), item(COLOR.low, 'low'), item('#b392f0', 'dashed = AI sub-connection (model / tool / memory → agent)'), el('span', {}, 'Click a finding to highlight its nodes'));
+    const item = (cls, t) => { const s = el('span'); s.append(el('i', { class: 'dot ' + cls }), document.createTextNode(t)); return s; };
+    const line = (dashed, t) => { const s = el('span'); s.append(el('i', { class: 'ln' + (dashed ? ' d' : '') }), document.createTextNode(t)); return s; };
+    lg.append(item('critical', 'critical'), item('high', 'high'), item('medium', 'medium'), item('low', 'low'), line(false, 'data flow'), line(true, 'model / tool / memory → agent'));
     wrap.append(lg);
     return wrap;
   }
 
   $('#run').onclick = lint;
-  $('#src').addEventListener('input', () => { clearTimeout(window.__t); window.__t = setTimeout(() => { if ($('#src').value.trim().length > 20) lint(); }, 500); });
   document.querySelectorAll('[data-ex]').forEach((b) => b.onclick = () => { $('#src').value = JSON.stringify(EXAMPLES[b.dataset.ex], null, 2); lint(); });
   const drop = $('#drop');
   ['dragenter', 'dragover'].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', async (ev) => { const f = ev.dataTransfer.files[0]; if (f) { $('#src').value = await f.text(); lint(); } });
+  $('#src').addEventListener('paste', () => setTimeout(() => { if ($('#src').value.trim().length > 20) lint(); }, 50));
 })();
 </script>
 </body>
